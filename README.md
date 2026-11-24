@@ -43,7 +43,7 @@ tests/               test_timeline.py
 ## Limitations / next steps
 
 - Plain-text table; swap in `rich` for colour once comfortable
-- No `Patient/$everything` yet (per-type searches instead)
+- `--everything` uses Patient/$everything, falling back to per-type searches
 - Add `fhir.resources` validation of each resource
 - Run against the Cerner open sandbox via `--server`
 
@@ -65,3 +65,4 @@ Against a live server, `fhir-timeline --patient <id> --latest` shows the newest 
 ## License
 
 MIT, see [LICENSE](LICENSE).
+

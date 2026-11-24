@@ -19,6 +19,21 @@ def load_demo_resources() -> list[dict]:
     return [e["resource"] for e in json.loads(text)["entry"]]
 
 
+def fetch_resources(client: FhirClient, patient_id: str, types: list[str] | None,
+                    use_everything: bool) -> list[dict]:
+    """Get a patient's resources, preferring $everything when asked, else per-type searches."""
+    if use_everything:
+        try:
+            return list(client.everything(patient_id))
+        except FhirError as exc:
+            print(f"note: $everything unavailable ({exc}); using per-type searches.",
+                  file=sys.stderr)
+    raw: list[dict] = []
+    for rtype in types or RESOURCE_TYPES:
+        raw.extend(client.search(rtype, {"patient": patient_id}))
+    return raw
+
+
 def patient_label(p: dict) -> str:
     name = (p.get("name") or [{}])[0]
     full = " ".join(name.get("given", []) + [name.get("family", "")]).strip()
@@ -32,6 +47,9 @@ def build_parser() -> argparse.ArgumentParser:
     who.add_argument("--name", help="Search patients by name and list matches")
     who.add_argument("--demo", action="store_true", help="Use bundled synthetic data, no network")
     p.add_argument("--server", default=DEFAULT_SERVER, help=f"FHIR base URL (default {DEFAULT_SERVER})")
+    p.add_argument("--everything", action="store_true",
+                   help="Fetch via Patient/$everything (one request chain); falls back to "
+                        "per-type searches if the server does not support it")
     p.add_argument("--types", nargs="+", choices=RESOURCE_TYPES, help="Limit to these resource types")
     p.add_argument("--since", help="Only events on/after this date (YYYY, YYYY-MM or YYYY-MM-DD)")
     p.add_argument("--until", help="Only events on/before this date")
@@ -64,9 +82,7 @@ def main(argv: list[str] | None = None) -> int:
                 print("\nRe-run with --patient <id> to see a timeline.")
                 return 0
             header = patient_label(client.read("Patient", args.patient))
-            raw = []
-            for rtype in (args.types or RESOURCE_TYPES):
-                raw.extend(client.search(rtype, {"patient": args.patient}))
+            raw = fetch_resources(client, args.patient, args.types, args.everything)
     except FhirError as exc:
         print(f"FHIR error: {exc}", file=sys.stderr)
         return 1

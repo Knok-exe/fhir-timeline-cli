@@ -65,23 +65,38 @@ class FhirClient:
             raise FhirError(outcome_message(body))
         return body
 
-    def search(self, resource_type: str, params: dict | None = None,
-               max_pages: int = 20) -> Iterator[dict]:
-        """Yield every resource across all pages (follows Bundle.link rel=next)."""
-        url = f"{self.base_url}/{resource_type}"
-        page_params = dict(params or {})
-        page_params.setdefault("_count", 100)
+    def _paged(self, url: str, params: dict | None, max_pages: int,
+               resource_type: str | None = None) -> Iterator[dict]:
+        """Yield resources across Bundle pages, following link rel=next."""
         for _ in range(max_pages):
-            bundle = self._get(url, page_params)
+            bundle = self._get(url, params)
             for entry in bundle.get("entry", []):
                 resource = entry.get("resource")
-                if resource and resource.get("resourceType") == resource_type:
+                if not resource:
+                    continue
+                if resource_type is None or resource.get("resourceType") == resource_type:
                     yield resource
-            nxt = next((l["url"] for l in bundle.get("link", []) if l.get("relation") == "next"),
-                       None)
+            nxt = next((link["url"] for link in bundle.get("link", [])
+                        if link.get("relation") == "next"), None)
             if not nxt:
                 return
-            url, page_params = nxt, None  # next URL already carries its query string
+            url, params = nxt, None  # next URL already carries its query string
+
+    def search(self, resource_type: str, params: dict | None = None,
+               max_pages: int = 20) -> Iterator[dict]:
+        """Yield every resource of one type across all pages."""
+        page_params = dict(params or {})
+        page_params.setdefault("_count", 100)
+        yield from self._paged(f"{self.base_url}/{resource_type}", page_params, max_pages,
+                               resource_type)
+
+    def everything(self, patient_id: str, max_pages: int = 50) -> Iterator[dict]:
+        """Yield every resource in the patient's compartment via Patient/{id}/$everything.
+
+        Raises FhirError if the server does not support the operation (caller can fall back).
+        """
+        url = f"{self.base_url}/Patient/{patient_id}/$everything"
+        yield from self._paged(url, {"_count": 100}, max_pages)
 
     def find_patients(self, name: str, limit: int = 10) -> list[dict]:
         params = {"name": name, "_count": limit}
