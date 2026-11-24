@@ -76,4 +76,6 @@ def test_missing_patient_reports_operation_outcome(server, capsys):
 
 def test_unreachable_server_is_a_clean_error(capsys):
     assert main(["--server", "http://127.0.0.1:9", "--patient", "p1"]) == 1
-    assert "Network error" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "could not connect to http://127.0.0.1:9" in err
+    assert "HTTPConnectionPool" not in err  # no raw urllib3 dump

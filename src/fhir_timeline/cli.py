@@ -7,6 +7,8 @@ import json
 import sys
 from importlib import resources
 
+import requests
+
 from .client import DEFAULT_SERVER, FhirClient, FhirError
 from .render import FORMATTERS
 from .timeline import RESOURCE_TYPES, build_timeline, filter_events, latest_per_code
@@ -86,7 +88,14 @@ def main(argv: list[str] | None = None) -> int:
     except FhirError as exc:
         print(f"FHIR error: {exc}", file=sys.stderr)
         return 1
-    except OSError as exc:  # requests' connection errors subclass OSError
+    except requests.exceptions.Timeout:
+        print(f"Network error: timed out talking to {args.server}.", file=sys.stderr)
+        return 1
+    except requests.exceptions.ConnectionError:
+        print(f"Network error: could not connect to {args.server}. "
+              "Check the URL and that the server is up.", file=sys.stderr)
+        return 1
+    except OSError as exc:
         print(f"Network error: {exc}", file=sys.stderr)
         return 1
 

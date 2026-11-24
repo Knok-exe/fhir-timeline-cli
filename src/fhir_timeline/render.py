@@ -23,11 +23,13 @@ def _clip(text: str, width: int) -> str:
 def to_table(events: list[Event]) -> str:
     rows = [HEADERS] + [_row(e) for e in events]
     widths = [min(max(len(r[i]) for r in rows), 48) for i in range(len(HEADERS))]
-    # Shrink the Description column so the table fits the terminal (never below 20 chars).
+    # Shrink Description, then Value, so the table fits the terminal (with minimum widths).
     available = shutil.get_terminal_size((120, 24)).columns
-    overflow = sum(widths) + 2 * (len(widths) - 1) - available
-    if overflow > 0:
-        widths[3] = max(20, widths[3] - overflow)
+    for col, floor in ((3, 20), (4, 12)):
+        overflow = sum(widths) + 2 * (len(widths) - 1) - available
+        if overflow <= 0:
+            break
+        widths[col] = max(floor, widths[col] - overflow)
     lines = []
     for n, r in enumerate(rows):
         lines.append("  ".join(_clip(c, widths[i]).ljust(widths[i]) for i, c in enumerate(r)).rstrip())
