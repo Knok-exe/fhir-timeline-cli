@@ -45,7 +45,7 @@ tests/               test_timeline.py
 - Plain-text table; swap in `rich` for colour once comfortable
 - `--everything` uses Patient/$everything, falling back to per-type searches
 - Add `fhir.resources` validation of each resource
-- Run against the Cerner open sandbox via `--server`
+- Verified live against SondaHub (`--patient 108 --everything`); next: the Cerner open sandbox via `--server`
 
 ## Example output
 
@@ -65,4 +65,5 @@ Against a live server, `fhir-timeline --patient <id> --latest` shows the newest 
 ## License
 
 MIT, see [LICENSE](LICENSE).
+
 
