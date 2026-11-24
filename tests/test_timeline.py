@@ -1,7 +1,12 @@
-from fhir_timeline.client import FhirClient, FhirError
 from fhir_timeline.cli import load_demo_resources, main
-from fhir_timeline.timeline import (abnormal_flag, build_timeline, first_coding,
-                                    observation_value, parse_fhir_datetime)
+from fhir_timeline.client import FhirClient, FhirError
+from fhir_timeline.timeline import (
+    abnormal_flag,
+    build_timeline,
+    first_coding,
+    observation_value,
+    parse_fhir_datetime,
+)
 
 
 class FakeResponse:

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import Iterator
+from collections.abc import Iterator
 
 import requests
 
@@ -84,10 +84,8 @@ class FhirClient:
             url, page_params = nxt, None  # next URL already carries its query string
 
     def find_patients(self, name: str, limit: int = 10) -> list[dict]:
-        out = []
-        for patient in self.search("Patient", {"name": name, "_count": limit}, max_pages=1):
-            out.append(patient)
-        return out[:limit]
+        params = {"name": name, "_count": limit}
+        return list(self.search("Patient", params, max_pages=1))[:limit]
 
     def read(self, resource_type: str, rid: str) -> dict:
         return self._get(f"{self.base_url}/{resource_type}/{rid}")

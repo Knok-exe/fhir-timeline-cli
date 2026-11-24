@@ -1,10 +1,10 @@
 import pytest
+from test_timeline import FakeResponse, FakeSession, bundle
 
 from fhir_timeline.cli import load_demo_resources
 from fhir_timeline.client import FhirClient, FhirError
 from fhir_timeline.render import to_table
 from fhir_timeline.timeline import build_timeline, filter_events, latest_per_code
-from test_timeline import FakeResponse, FakeSession, bundle
 
 
 def demo_events():
