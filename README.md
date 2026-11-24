@@ -46,3 +46,22 @@ tests/               test_timeline.py
 - No `Patient/$everything` yet (per-type searches instead)
 - Add `fhir.resources` validation of each resource
 - Run against the Cerner open sandbox via `--server`
+
+## Example output
+
+From `fhir-timeline --demo` (invented patient, no network needed):
+
+```text
+Date        Type                Code              Description                       Value        Flag
+----------  ------------------  ----------------  --------------------------------  -----------  ----
+2019-06-10  Condition           SNOMED 44054006   Type 2 diabetes mellitus          active
+2023-07-20  Observation         LOINC 4548-4      Hemoglobin A1c/Hemoglobin.tot…    8.1 %        H
+2024-01-15  Observation         LOINC 85354-9     Blood pressure panel              142/88 mmHg
+2024-01-15  Observation         LOINC 2160-0      Creatinine [Mass/volume] in S…    0.9 mg/dL
+```
+
+Against a live server, `fhir-timeline --patient <id> --latest` shows the newest result per code.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
