@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import calendar
+import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 LOINC = "http://loinc.org"
 SNOMED = "http://snomed.info/sct"
@@ -34,6 +36,9 @@ class Event:
         return self.when.strftime("%Y-%m-%d") if self.when else "unknown"
 
 
+_FRACTION = re.compile(r"\.(\d+)")
+
+
 def parse_fhir_datetime(value: str | None) -> datetime | None:
     """Parse FHIR date/dateTime, including partial dates (YYYY, YYYY-MM). Returns UTC-aware."""
     if not value:
@@ -43,7 +48,10 @@ def parse_fhir_datetime(value: str | None) -> datetime | None:
             return datetime(int(value), 1, 1, tzinfo=timezone.utc)
         if len(value) == 7:
             return datetime(int(value[:4]), int(value[5:7]), 1, tzinfo=timezone.utc)
-        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        # FHIR allows any number of fractional-second digits; Python 3.10's fromisoformat only
+        # accepts exactly 3 or 6, so pad/trim to 6 first.
+        text = _FRACTION.sub(lambda m: "." + (m.group(1) + "000000")[:6], value)
+        dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
     except ValueError:
         return None
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
@@ -156,14 +164,29 @@ def build_timeline(resources, kinds: set[str] | None = None) -> list[Event]:
     return sorted(events, key=_sort_key)
 
 
+def _last_day(value: str) -> date | None:
+    """Last calendar day covered by a (possibly partial) date: 2024 -> 2024-12-31,
+    2024-02 -> 2024-02-29, 2024-06-30 -> 2024-06-30."""
+    dt = parse_fhir_datetime(value)
+    if dt is None:
+        return None
+    if len(value) == 4:
+        return date(dt.year, 12, 31)
+    if len(value) == 7:
+        return date(dt.year, dt.month, calendar.monthrange(dt.year, dt.month)[1])
+    return dt.date()
+
+
 def filter_events(events: list[Event], since: str | None = None, until: str | None = None,
                   codes: list[str] | None = None) -> list[Event]:
-    """Keep events inside [since, until] (inclusive, YYYY-MM-DD) and matching any given code.
+    """Keep events inside [since, until] and matching any given code.
 
-    Undated events are dropped when a date bound is given: we can't prove they are in range.
+    Both bounds are inclusive and may be partial: --since 2023 starts on 2023-01-01 and
+    --until 2024 runs through 2024-12-31. Undated events are dropped when a date bound is
+    given: we can't prove they are in range.
     """
     lo = parse_fhir_datetime(since) if since else None
-    hi = parse_fhir_datetime(until) if until else None
+    hi = _last_day(until) if until else None
     if since and lo is None or until and hi is None:
         raise ValueError("dates must look like YYYY, YYYY-MM or YYYY-MM-DD")
     wanted = {c.strip() for c in codes or []}
@@ -173,7 +196,7 @@ def filter_events(events: list[Event], since: str | None = None, until: str | No
             continue
         if lo and e.when < lo:
             continue
-        if hi and e.when.date() > hi.date():
+        if hi and e.when.date() > hi:
             continue
         if wanted and e.code not in wanted:
             continue

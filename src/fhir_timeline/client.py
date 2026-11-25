@@ -12,7 +12,6 @@ from . import __version__
 RETRY_STATUS = {429, 502, 503, 504}
 
 DEFAULT_SERVER = "https://api.sondahub.com/fhir"
-FALLBACK_SERVER = "http://hapi.fhir.org/baseR4"
 
 
 class FhirError(Exception):
@@ -39,6 +38,9 @@ class FhirClient:
         self.timeout = timeout
         self.max_retries = max_retries
         self._sleep = sleep
+        # Searches that stopped at max_pages while the server still had more pages. Callers
+        # should tell the user, because the results they show are incomplete.
+        self.truncated: list[str] = []
 
     def _get_with_retry(self, url: str, params: dict | None):
         """GET, retrying 429/5xx with Retry-After or exponential backoff (1s, 2s, 4s)."""
@@ -56,7 +58,12 @@ class FhirClient:
         try:
             body = resp.json()
         except ValueError:
-            body = {}
+            body = None
+        if not isinstance(body, dict):
+            if resp.status_code >= 400:
+                raise FhirError(f"HTTP {resp.status_code} from {url}")
+            # e.g. an HTML page from a wrong base URL: don't pretend it was an empty result
+            raise FhirError(f"{url} did not return FHIR JSON. Is the --server URL a FHIR base?")
         if resp.status_code >= 400:
             if body.get("resourceType") == "OperationOutcome":
                 raise FhirError(f"HTTP {resp.status_code}: {outcome_message(body)}")
@@ -67,8 +74,13 @@ class FhirClient:
 
     def _paged(self, url: str, params: dict | None, max_pages: int,
                resource_type: str | None = None) -> Iterator[dict]:
-        """Yield resources across Bundle pages, following link rel=next."""
-        for _ in range(max_pages):
+        """Yield resources across Bundle pages, following link rel=next.
+
+        Stops after max_pages; if the server still offered a next page, the starting URL is
+        recorded in self.truncated so the caller can warn that results are incomplete.
+        """
+        first_url = url
+        for page in range(max_pages):
             bundle = self._get(url, params)
             for entry in bundle.get("entry", []):
                 resource = entry.get("resource")
@@ -79,6 +91,9 @@ class FhirClient:
             nxt = next((link["url"] for link in bundle.get("link", [])
                         if link.get("relation") == "next"), None)
             if not nxt:
+                return
+            if page == max_pages - 1:
+                self.truncated.append(first_url)
                 return
             url, params = nxt, None  # next URL already carries its query string
 
