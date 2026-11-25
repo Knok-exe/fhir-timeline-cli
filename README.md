@@ -16,7 +16,7 @@ fhir-timeline --patient <id> --format csv -o timeline.csv
 fhir-timeline --server http://hapi.fhir.org/baseR4 --name Smith   # any FHIR R4 base URL
 
 # filters
-fhir-timeline --demo --since 2023 --until 2024-06-30        # date window
+fhir-timeline --demo --since 2023 --until 2024-06            # date window (inclusive; 2024-06 = through June 30)
 fhir-timeline --demo --code 4548-4 2160-0                   # only these LOINC/SNOMED/RxNorm codes
 fhir-timeline --demo --latest                               # newest result per code
 ```
@@ -37,7 +37,7 @@ Default server: SondaHub public synthetic FHIR (`https://api.sondahub.com/fhir`,
 
 ```
 src/fhir_timeline/   client.py  timeline.py  render.py  cli.py  demo_bundle.json
-tests/               test_timeline.py
+tests/               timeline, filters/retry, live local HTTP, edge cases, $everything
 ```
 
 ## Limitations / next steps

@@ -85,6 +85,9 @@ def main(argv: list[str] | None = None) -> int:
                 return 0
             header = patient_label(client.read("Patient", args.patient))
             raw = fetch_resources(client, args.patient, args.types, args.everything)
+            for url in client.truncated:
+                print(f"warning: stopped paging {url} at the page limit; the timeline is "
+                      "incomplete.", file=sys.stderr)
     except FhirError as exc:
         print(f"FHIR error: {exc}", file=sys.stderr)
         return 1
